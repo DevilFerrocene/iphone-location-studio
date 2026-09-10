@@ -11,7 +11,7 @@
 
 ## 运行
 
-需要 macOS、Python 3.11+、[uv](https://docs.astral.sh/uv/)、一台通过 USB 连接的 iPhone。手机需解锁、信任电脑并开启开发者模式。设备连接使用 pymobiledevice3 的 macOS 原生通道。
+需要 Python 3.11+、[uv](https://docs.astral.sh/uv/)、一台通过 USB 连接的 iPhone 或 iPad。设备需解锁、信任电脑并开启开发者模式。macOS 使用 pymobiledevice3 的原生通道，Windows 和其他系统使用无需管理员权限的用户态通道；USB 驱动和设备通信服务仍需由系统提供。
 
 ```sh
 git clone https://github.com/DevilFerrocene/iphone-location-studio.git
@@ -19,7 +19,7 @@ cd iphone-location-studio
 uv run python server.py
 ```
 
-打开 <http://127.0.0.1:8769/>，点击“连接 iPhone”。也可以双击 `启动行迹.command`。
+打开 <http://127.0.0.1:8769/>，点击“连接 iPhone”（也支持 iPad）。macOS 上也可以双击 `启动行迹.command`。
 
 1. 在地图上依次选择路线点。
 2. 设置全局参数，或展开某段并取消“沿用全局参数”。
@@ -31,7 +31,7 @@ uv run python server.py
 
 ## 使用范围
 
-在 macOS 上使用 iOS 26.6.1 真机完成过位置模拟验证。界面和生成器支持分段弧线与随机速度；设备使用情况以实际连接结果为准。当前设备连接实现仅针对 macOS。
+在 macOS 上使用 iOS 26.6.1 真机完成过位置模拟验证；在 Windows 上使用 iPadOS 18.7.8 真机完成过连接、位置模拟及清除验证，并在地图 App 中确认模拟位置生效。Linux 尚未实测。界面和生成器支持分段弧线与随机速度；设备使用情况以实际连接结果为准。
 
 服务仅监听 `127.0.0.1:8769`，修改操作需要页面携带本次启动的随机令牌。设备标识仅在连接时读取，路线和状态保存在内存中。地图瓦片由 OpenStreetMap 在线提供。轨迹没有人为数量上限，较密集的采样会增加内存和生成耗时。
 

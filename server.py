@@ -65,10 +65,11 @@ class Controller:
                 proc.kill()
                 await proc.wait()
                 raise RuntimeError('设备识别超时，请重新连接数据线')
-            devices = [d for d in json.loads(out) if d.get('ConnectionType') == 'USB' and d.get('DeviceClass') == 'iPhone']
+            devices = [d for d in json.loads(out) if d.get('ConnectionType') == 'USB' and d.get('DeviceClass') in ('iPhone', 'iPad')]
             if len(devices) != 1:
-                raise RuntimeError('请只连接一台已解锁并信任此电脑的 iPhone')
-            self.worker = await asyncio.create_subprocess_exec(sys.executable, '-u', str(ROOT/'device_worker.py'), '--native', '--udid', devices[0]['Identifier'], stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=None)
+                raise RuntimeError('请只连接一台已解锁并信任此电脑的 iPhone 或 iPad')
+            transport = '--native' if sys.platform == 'darwin' else '--userspace'
+            self.worker = await asyncio.create_subprocess_exec(sys.executable, '-u', str(ROOT/'device_worker.py'), transport, '--udid', devices[0]['Identifier'], stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=None)
             try:
                 result = await self.response()
                 if not result.get('ready'):
@@ -159,7 +160,7 @@ async def local_only(request: Request, call_next):
 
 @app.get('/')
 async def index():
-    return HTMLResponse((ROOT/'static/index.html').read_text().replace('__TOKEN__', TOKEN), headers={'Cache-Control': 'no-store'})
+    return HTMLResponse((ROOT/'static/index.html').read_text(encoding='utf-8').replace('__TOKEN__', TOKEN), headers={'Cache-Control': 'no-store'})
 
 
 @app.get('/api/status')
