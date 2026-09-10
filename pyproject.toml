@@ -1,0 +1,14 @@
+[project]
+name = "iphone-location-studio"
+version = "0.1.0"
+description = "Local map-based iPhone location simulation with per-segment curves and pace settings"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    "pymobiledevice3==11.8.0",
+    "fastapi==0.141.1",
+    "uvicorn==0.52.4",
+]
+
+[tool.uv]
+package = false
