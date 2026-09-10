@@ -159,7 +159,7 @@ async def local_only(request: Request, call_next):
 
 @app.get('/')
 async def index():
-    return HTMLResponse((ROOT/'static/index.html').read_text().replace('__TOKEN__', TOKEN), headers={'Cache-Control': 'no-store'})
+    return HTMLResponse((ROOT/'static/index.html').read_text(encoding='utf-8').replace('__TOKEN__', TOKEN), headers={'Cache-Control': 'no-store'})
 
 
 @app.get('/api/status')
