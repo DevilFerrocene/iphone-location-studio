@@ -8,6 +8,26 @@ const simulated=L.polyline([], {color:'#285ccd',weight:3}).addTo(map);
 const cursor=L.circleMarker([39.9042,116.4074], {radius:8,color:'white',weight:3,fillColor:'#208174',fillOpacity:1});
 const active=()=>['playing','paused'].includes(status.mode);
 function payload(){return {points,segments,speed:Number($('speed').value),interval:Number($('interval').value),noise:Number($('noise').value),bend:Number($('bend').value),speed_min:Number($('speed_min').value),speed_max:Number($('speed_max').value),seed:routeSeed};}
+const routeKeys=['speed','interval','noise','bend','speed_min','speed_max'];
+function routeDocument(data){
+ if(!data||data.format!=='iphone-location-studio-route'||data.version!==1)throw Error('不支持的轨迹文件格式或版本');
+ const route=data.route;
+ if(!route||!Array.isArray(route.points)||route.points.length<2)throw Error('轨迹至少需要 2 个路线点');
+ for(const point of route.points){
+  if(!Array.isArray(point)||point.length!==2||!point.every(Number.isFinite)||Math.abs(point[0])>85||Math.abs(point[1])>180)throw Error('轨迹坐标格式错误或超出地图范围');
+ }
+ if(!Array.isArray(route.segments)||route.segments.length!==route.points.length-1)throw Error('轨迹分段数量与路线点不匹配');
+ const settings=(value,label)=>{
+  if(!value||typeof value!=='object'||Array.isArray(value)||!routeKeys.every(key=>Number.isFinite(value[key])))throw Error(label+'必须包含完整的数字参数');
+  const {speed,interval,noise,speed_min:low,speed_max:high}=value;
+  if(speed<=0||interval<=0||noise<0)throw Error(label+'：速度和间隔必须大于零，噪声必须非负');
+  if((low!==0||high!==0)&&!(0<low&&low<=high))throw Error(label+'：随机速度需满足 0 < 最低 ≤ 最高；均为 0 使用固定速度');
+  return Object.fromEntries(routeKeys.map(key=>[key,value[key]]));
+ };
+ const globals=settings(route,'全局参数');
+ const overrides=route.segments.map((value,i)=>value===null?null:settings(value,`第 ${i+1} 段`));
+ return {points:route.points,segments:overrides,...globals};
+}
 async function api(action,data={}){
  const r=await fetch('/api/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Local-Token':window.LOCAL_TOKEN},body:JSON.stringify(data)});
  const result=await r.json(); if(!r.ok) throw Error(result.detail||'操作失败'); return result;
@@ -52,6 +72,8 @@ function render(){
  $('pause').disabled=busy||!active();$('pause').textContent=status.mode==='paused'?'继续':'暂停';
  $('stop').disabled=busy||!active();$('clear').disabled=busy;
  ['reset','undo','speed','noise','interval','bend','speed_min','speed_max','preview'].forEach(id=>$(id).disabled=busy||active());
+ $('save-route').disabled=busy||active()||points.length<2;
+ $('import-route').disabled=busy||active();
  $('mode').textContent=modes[status.mode]||status.mode;
  $('progressText').textContent=`${status.sent||0} / ${status.total||0} 个点已发送`;
  $('progress').max=status.total||1;$('progress').value=status.sent||0;
@@ -68,6 +90,30 @@ $('undo').onclick=()=>{points.pop();dirty();redraw();render();};
 $('reset').onclick=()=>{points=[];dirty();redraw();render();};
 $('fit').onclick=()=>{if(points.length)map.fitBounds(L.latLngBounds(points).pad(.2),{maxZoom:18});};
 ['speed','interval','noise','bend','speed_min','speed_max'].forEach(id=>$(id).oninput=()=>{dirty();segmentEditors();});
+$('save-route').onclick=()=>run(async()=>{
+ const data={format:'iphone-location-studio-route',version:1,route:payload()};
+ data.route=routeDocument(data);
+ const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)+'\n'],{type:'application/json'}));
+ const link=document.createElement('a');link.href=url;link.download='行迹路线.json';document.body.append(link);
+ try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+ $('message').textContent='轨迹已导出，可通过“导入轨迹”重复使用。';
+});
+$('import-route').onclick=()=>{if(!busy&&!active())$('route-file').click();};
+$('route-file').onchange=()=>{
+ const file=$('route-file').files[0];$('route-file').value='';
+ if(!file||busy||active())return;
+ run(async()=>{
+  const rev=revision;
+  let data;
+  try{data=JSON.parse(await file.text());}catch{throw Error('无法读取轨迹文件，请选择有效的 JSON 文件');}
+  const route=routeDocument(data);
+  if(active()||revision!==rev)throw Error('路线状态已变化，请重新导入');
+  points=route.points;segments=route.segments;
+  routeKeys.forEach(key=>$(key).value=route[key]);routeSeed=0;
+  dirty();redraw();$('fit').click();
+  $('message').textContent=`已导入 ${points.length} 个途经点，请生成轨迹预览。`;
+ });
+};
 $('preview').onclick=()=>run(makePreview);
 $('connect').onclick=()=>run(async()=>{status=await api('connect');});
 $('start').onclick=()=>run(async()=>{if(!preview)await makePreview();status=await api('start',payload());});
